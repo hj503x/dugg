@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Dugg is an answer-first search engine: one plain factual answer, or an honest 'I don't know' — never a page of guesses.">
+<title>Dugg</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23171A1D'/%3E%3Ccircle cx='22' cy='23' r='4.2' fill='%232F5233'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #FAF8F3;
+    --ink: #171A1D;
+    --muted: #6E6A61;
+    --line: #DEDACD;
+    --confirmed: #2F5233;
+    --confirmed-bg: #EEF2EA;
+    --unresolved: #A8571C;
+    --unresolved-bg: #FBF0E6;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+
+  /* ---------- top bar (hidden until a search has been made) ---------- */
+
+  header {
+    display: none;
+    align-items: center;
+    gap: 20px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 0;
+    background: var(--paper);
+    z-index: 5;
+  }
+
+  header.visible { display: flex; }
+
+  .logo-small {
+    font-family: 'Fraunces', serif;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--ink);
+    text-decoration: none;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  .logo-small span { color: var(--confirmed); }
+
+  .search-pill {
+    flex: 1;
+    max-width: 620px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #fff;
+    border: 1.5px solid var(--line);
+    border-radius: 999px;
+    padding: 9px 16px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .search-pill:focus-within {
+    border-color: var(--ink);
+    box-shadow: 0 2px 10px rgba(23,26,29,0.08);
+  }
+
+  .search-pill svg { flex-shrink: 0; opacity: 0.5; }
+
+  .search-pill input {
+    border: none;
+    outline: none;
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    background: transparent;
+    color: var(--ink);
+  }
+
+  /* ---------- centered homepage state ---------- */
+
+  .home {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: clamp(8vh, 14vh, 20vh) 20px 40px;
+  }
+
+  .home.hidden { display: none; }
+
+  .wordmark {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(2.6rem, 9vw, 4.2rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  .wordmark span { color: var(--confirmed); }
+
+  .tagline {
+    color: var(--muted);
+    font-size: 1.02rem;
+    margin: 12px 0 40px;
+    max-width: 36ch;
+    text-align: center;
+    line-height: 1.55;
+  }
+
+  .home-search-pill {
+    width: 100%;
+    max-width: 600px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #fff;
+    border: 1.5px solid var(--line);
+    border-radius: 999px;
+    padding: 15px 20px;
+    box-shadow: 0 1px 6px rgba(23,26,29,0.05);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .home-search-pill:focus-within {
+    border-color: var(--ink);
+    box-shadow: 0 4px 16px rgba(23,26,29,0.1);
+  }
+
+  .home-search-pill svg { flex-shrink: 0; opacity: 0.45; }
+
+  .home-search-pill input {
+    border: none;
+    outline: none;
+    flex: 1;
+    min-width: 0;
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    background: transparent;
+    color: var(--ink);
+  }
+
+  .home-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .btn {
+    border: none;
+    background: #F0EDE3;
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    padding: 10px 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+
+  .btn:hover { background: #E6E2D4; }
+
+  .btn.primary { background: var(--ink); color: var(--paper); }
+  .btn.primary:hover { opacity: 0.88; background: var(--ink); }
+
+  .chip-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 28px;
+    max-width: 480px;
+  }
+
+  .chip {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.76rem;
+    color: var(--muted);
+    background: #F0EDE3;
+    border: none;
+    padding: 5px 11px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+
+  .chip:hover { background: #E6E2D4; color: var(--ink); }
+
+  .shortcut-hint {
+    margin-top: 18px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    opacity: 0.7;
+  }
+
+  .shortcut-hint kbd {
+    font-family: inherit;
+    background: #F0EDE3;
+    border-radius: 3px;
+    padding: 1px 5px;
+  }
+
+  /* ---------- results state ---------- */
+
+  main.results {
+    display: none;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 28px 20px 60px;
+  }
+
+  main.results.visible { display: block; }
+
+  .results-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 16px;
+    word-break: break-word;
+  }
+
+  .result {
+    padding: 24px 22px;
+    border-left: 3px solid var(--line);
+    border-radius: 4px;
+    transition: background 0.2s, border-color 0.2s;
+  }
+
+  .result.confirmed { border-left-color: var(--confirmed); background: var(--confirmed-bg); }
+  .result.unresolved { border-left-color: var(--unresolved); background: var(--unresolved-bg); }
+
+  .result-text {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(1.2rem, 4.2vw, 1.5rem);
+    line-height: 1.45;
+    margin: 0 0 16px;
+  }
+
+  .result-text.loading::after {
+    content: '';
+    display: inline-block;
+    width: 1.2em;
+    text-align: left;
+    animation: dots 1.2s steps(4, end) infinite;
+  }
+
+  @keyframes dots {
+    0%   { content: ''; }
+    25%  { content: '.'; }
+    50%  { content: '..'; }
+    75%  { content: '...'; }
+    100% { content: ''; }
+  }
+
+  .result-meta {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--muted);
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .result-meta .badge {
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.05);
+  }
+
+  .result.confirmed .result-meta .badge { background: rgba(47,82,51,0.12); color: var(--confirmed); }
+  .result.unresolved .result-meta .badge { background: rgba(168,87,28,0.12); color: var(--unresolved); }
+
+  .result[aria-busy="true"] .result-meta {
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 0.75; }
+  }
+
+  @keyframes shake {
+    10%, 90% { transform: translateX(-1px); }
+    20%, 80% { transform: translateX(2px); }
+    30%, 50%, 70% { transform: translateX(-4px); }
+    40%, 60% { transform: translateX(4px); }
+  }
+
+  .search-pill.shake, .home-search-pill.shake {
+    animation: shake 0.4s;
+    border-color: var(--unresolved);
+  }
+
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.78rem;
+    padding: 40px 24px 24px;
+  }
+
+  @media (max-width: 460px) {
+    header { gap: 14px; padding: 14px 16px; }
+    .logo-small { font-size: 1.2rem; }
+    .home-buttons { width: 100%; }
+    .btn { flex: 1; text-align: center; }
+    .result { padding: 20px 18px; }
+  }
+</style>
+</head>
+<body>
+
+  <header id="top-header">
+    <a class="logo-small" id="logo-small" href="#">dugg<span>.</span></a>
+    <form id="top-search-form" style="flex:1; display:flex; min-width:0;">
+      <div class="search-pill">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="text" id="top-query" placeholder="capital of india" autocomplete="off" aria-label="Search Dugg">
+      </div>
+    </form>
+  </header>
+
+  <div class="home" id="home">
+    <h1 class="wordmark">dugg<span>.</span></h1>
+    <p class="tagline">One answer, stated plainly — or an honest "I don't know" instead of ten pages of guesses.</p>
+
+    <form id="home-search-form" style="width:100%; display:flex; justify-content:center;">
+      <div class="home-search-pill">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="text" id="home-query" placeholder="Ask Dugg anything factual…" autocomplete="off" autofocus aria-label="Ask Dugg a factual question">
+      </div>
+    </form>
+
+    <div class="home-buttons">
+      <button class="btn primary" type="button" id="ask-btn">Ask Dugg</button>
+      <button class="btn" type="button" id="lucky-btn">Surprise Me</button>
+    </div>
+
+    <div class="chip-row">
+      <button class="chip" type="button" data-q="capital of india">capital of india</button>
+      <button class="chip" type="button" data-q="population of japan">population of japan</button>
+      <button class="chip" type="button" data-q="15% of 200">15% of 200</button>
+      <button class="chip" type="button" data-q="10 km to miles">10 km to miles</button>
+      <button class="chip" type="button" data-q="25 celsius to fahrenheit">25 celsius to fahrenheit</button>
+    </div>
+
+    <p class="shortcut-hint">Press <kbd>/</kbd> to search from anywhere</p>
+  </div>
+
+  <main class="results" id="results-view">
+    <div class="results-label" id="results-label"></div>
+    <div class="result" id="result">
+      <p class="result-text" id="result-text" aria-live="polite"></p>
+      <div class="result-meta">
+        <span class="badge" id="result-confidence"></span>
+        <span id="result-source"></span>
+        <span id="result-type"></span>
+      </div>
+    </div>
+  </main>
+
+  <footer id="page-footer">Dugg — answer-first search, built to be precise before it's exhaustive.</footer>
+
+<script>
+  // 👇 SET THIS ONCE YOU DEPLOY (Render/Railway/etc.), no trailing slash.
+  // Locally this is skipped automatically. You can also override at any time
+  // by visiting the page with ?api=https://your-backend.example.com
+  const DEPLOYED_API_BASE = "http://localhost:8000";
+
+  const isLocalHost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+  const apiOverride = new URLSearchParams(window.location.search).get("api");
+  const API_BASE = apiOverride || (isLocalHost ? "http://localhost:8000" : DEPLOYED_API_BASE);
+
+  const SAMPLE_QUERIES = ["capital of india", "population of japan", "15% of 200", "10 km to miles", "25 celsius to fahrenheit", "currency of france"];
+
+  const homeView = document.getElementById("home");
+  const resultsView = document.getElementById("results-view");
+  const topHeader = document.getElementById("top-header");
+  const homeForm = document.getElementById("home-search-form");
+  const topForm = document.getElementById("top-search-form");
+  const homeInput = document.getElementById("home-query");
+  const topInput = document.getElementById("top-query");
+  const resultBox = document.getElementById("result");
+  const resultText = document.getElementById("result-text");
+  const resultConfidence = document.getElementById("result-confidence");
+  const resultSource = document.getElementById("result-source");
+  const resultType = document.getElementById("result-type");
+  const resultsLabel = document.getElementById("results-label");
+
+  let currentController = null;
+  const REQUEST_TIMEOUT_MS = 15000;
+
+  function shakeEmptyInput() {
+    const activePill = (topHeader.classList.contains("visible") ? topInput : homeInput)
+      .closest(".search-pill, .home-search-pill");
+    if (!activePill) return;
+    activePill.classList.remove("shake");
+    // force reflow so the animation can retrigger on repeated attempts
+    void activePill.offsetWidth;
+    activePill.classList.add("shake");
+  }
+
+  async function runSearch(q, { updateUrl = true } = {}) {
+    if (!q || !q.trim()) {
+      shakeEmptyInput();
+      return;
+    }
+    q = q.trim();
+
+    // Cancel any in-flight request before starting a new one
+    if (currentController) currentController.abort();
+    const myController = new AbortController();
+    currentController = myController;
+
+    // switch to results layout
+    homeView.classList.add("hidden");
+    topHeader.classList.add("visible");
+    resultsView.classList.add("visible");
+    topInput.value = q;
+    homeInput.value = q;
+
+    if (updateUrl) {
+      const url = new URL(window.location);
+      url.searchParams.set("q", q);
+      history.pushState({ q }, "", url);
+    }
+
+    resultsLabel.textContent = `results for "${q}"`;
+    resultText.textContent = "Thinking";
+    resultText.classList.add("loading");
+    resultConfidence.textContent = "";
+    resultSource.textContent = "";
+    resultType.textContent = "";
+    resultBox.classList.remove("confirmed", "unresolved");
+    resultBox.setAttribute("aria-busy", "true");
+
+    const timeoutId = setTimeout(() => myController.abort(), REQUEST_TIMEOUT_MS);
+
+    try {
+      const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(q)}`, { signal: myController.signal });
+      clearTimeout(timeoutId);
+      // If a newer search has started since, drop this stale response entirely
+      if (myController !== currentController) return;
+
+      if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+      const data = await res.json();
+      if (myController !== currentController) return;
+
+      resultText.classList.remove("loading");
+      resultText.textContent = data.answer ?? "No answer returned.";
+      const confidence = typeof data.confidence === "number" ? data.confidence : 0;
+      const confidenceLabel = confidence >= 0.75 ? "high" : confidence >= 0.5 ? "medium" : "low";
+      resultConfidence.textContent = `confidence: ${(confidence * 100).toFixed(0)}% · ${confidenceLabel}`;
+      resultSource.textContent = `source: ${data.source ?? "unknown"}`;
+      resultType.textContent = `type: ${data.query_type ?? "unknown"}`;
+      resultBox.classList.add(confidence >= 0.5 ? "confirmed" : "unresolved");
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (myController !== currentController) return; // superseded by a newer search
+
+      resultText.classList.remove("loading");
+      if (err.name === "AbortError") {
+        resultText.textContent = "That took too long — the Dugg backend didn't respond in time.";
+      } else {
+        resultText.textContent = "Couldn't reach the Dugg backend. Is it running at " + API_BASE + "?";
+      }
+      resultBox.classList.add("unresolved");
+    } finally {
+      if (myController === currentController) resultBox.removeAttribute("aria-busy");
+    }
+  }
+
+  homeForm.addEventListener("submit", (e) => { e.preventDefault(); runSearch(homeInput.value); });
+  topForm.addEventListener("submit", (e) => { e.preventDefault(); runSearch(topInput.value); });
+
+  document.getElementById("ask-btn").addEventListener("click", () => runSearch(homeInput.value));
+  document.getElementById("lucky-btn").addEventListener("click", () => {
+    const q = SAMPLE_QUERIES[Math.floor(Math.random() * SAMPLE_QUERIES.length)];
+    homeInput.value = q;
+    runSearch(q);
+  });
+
+  document.querySelectorAll(".chip").forEach(chip => {
+    chip.addEventListener("click", () => runSearch(chip.dataset.q));
+  });
+
+  function goHome() {
+    resultsView.classList.remove("visible");
+    topHeader.classList.remove("visible");
+    homeView.classList.remove("hidden");
+    homeInput.value = "";
+    homeInput.focus();
+    const url = new URL(window.location);
+    url.searchParams.delete("q");
+    history.pushState({}, "", url);
+  }
+
+  document.getElementById("logo-small").addEventListener("click", (e) => {
+    e.preventDefault();
+    goHome();
+  });
+
+  // Support browser back/forward between a search and the homepage
+  window.addEventListener("popstate", (e) => {
+    const q = e.state?.q || new URLSearchParams(window.location.search).get("q");
+    if (q) {
+      runSearch(q, { updateUrl: false });
+    } else {
+      resultsView.classList.remove("visible");
+      topHeader.classList.remove("visible");
+      homeView.classList.remove("hidden");
+    }
+  });
+
+  // If the page was opened with a shared link (?q=...), jump straight to results
+  const initialQuery = new URLSearchParams(window.location.search).get("q");
+  if (initialQuery) {
+    homeInput.value = initialQuery;
+    runSearch(initialQuery, { updateUrl: false });
+  }
+
+  // "/" focuses the active search box, unless the user is already typing somewhere
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "/" ) return;
+    const tag = document.activeElement.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA") return;
+    e.preventDefault();
+    (topHeader.classList.contains("visible") ? topInput : homeInput).focus();
+  });
+</script>
+
+</body>
+</html>
